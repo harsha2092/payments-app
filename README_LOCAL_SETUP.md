@@ -122,3 +122,8 @@ If you fetch the parent order again, you will notice the `paidAmount` has increm
 ```bash
 curl http://localhost:8080/orders/{PASTE_YOUR_ORDER_ID_HERE}
 ```
+
+To fetch the order along with all its associated payment attempt records natively bundled in the response, you can append `?includePayments=true`:
+```bash
+curl "http://localhost:8080/orders/{PASTE_YOUR_ORDER_ID_HERE}?includePayments=true"
+```

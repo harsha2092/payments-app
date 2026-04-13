@@ -11,7 +11,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
+import com.payments.payment_order_service.order.dto.response.OrderResponse;
+import com.payments.payment_order_service.payment.entities.PaymentAttempt;
 
 @Service
 public class OrderService {
@@ -58,6 +62,24 @@ public class OrderService {
     public PurchaseOrder getOrder(UUID orderId) {
         return orderRepository.findById(orderId)
                 .orElseThrow(() -> new IllegalArgumentException("Order not found: " + orderId));
+    }
+
+    public OrderResponse getOrderWithPayments(UUID orderId) {
+        List<Object[]> results = orderRepository.findOrderWithPayments(orderId);
+        if (results.isEmpty()) {
+            throw new IllegalArgumentException("Order not found: " + orderId);
+        }
+
+        PurchaseOrder order = (PurchaseOrder) results.get(0)[0];
+        List<PaymentAttempt> payments = new ArrayList<>();
+
+        for (Object[] row : results) {
+            if (row[1] != null) {
+                payments.add((PaymentAttempt) row[1]);
+            }
+        }
+
+        return new OrderResponse(order, payments);
     }
 
     @Transactional

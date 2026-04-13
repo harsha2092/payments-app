@@ -8,7 +8,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
-
 @RestController
 @RequestMapping("/orders")
 public class OrderController {
@@ -26,7 +25,14 @@ public class OrderController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<PurchaseOrder> getOrder(@PathVariable UUID id) {
-        return ResponseEntity.ok(orderService.getOrder(id));
+    public ResponseEntity<com.payments.payment_order_service.order.dto.response.OrderResponse> getOrder(
+            @PathVariable UUID id,
+            @RequestParam(required = false, defaultValue = "false") boolean includePayments) {
+        if (includePayments) {
+            return ResponseEntity.ok(orderService.getOrderWithPayments(id));
+        } else {
+            PurchaseOrder order = orderService.getOrder(id);
+            return ResponseEntity.ok(new com.payments.payment_order_service.order.dto.response.OrderResponse(order, null));
+        }
     }
 }

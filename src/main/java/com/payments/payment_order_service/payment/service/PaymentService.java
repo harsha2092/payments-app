@@ -144,6 +144,10 @@ public class PaymentService {
         return savedAttempt;
     }
 
+    public List<PaymentAttempt> getPaymentsForOrder(UUID orderId) {
+        return paymentAttemptRepository.findByOrderId(orderId);
+    }
+
     public EligiblePaymentMethodsResponse getEligibleMethods(UUID orderId) {
         // Validate order exists
         orderService.getOrder(orderId);
