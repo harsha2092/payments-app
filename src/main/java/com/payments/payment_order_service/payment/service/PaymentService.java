@@ -1,7 +1,6 @@
 package com.payments.payment_order_service.payment.service;
 
 import com.github.f4b6a3.uuid.UuidCreator;
-import com.payments.payment_order_service.order.entities.PurchaseOrder;
 import com.payments.payment_order_service.order.service.OrderService;
 import com.payments.payment_order_service.payment.business_models.PaymentMethodMetadata;
 import com.payments.payment_order_service.payment.business_models.VerifiedPaymentResult;
@@ -35,10 +34,10 @@ public class PaymentService {
     private final PaymentVendorLogRepository paymentVendorLogRepository;
 
     public PaymentService(PaymentAttemptRepository paymentAttemptRepository,
-                          OrderService orderService,
-                          PaymentEventRepository paymentEventRepository,
-                          GatewayClientFactory gatewayClientFactory,
-                          PaymentVendorLogRepository paymentVendorLogRepository) {
+            OrderService orderService,
+            PaymentEventRepository paymentEventRepository,
+            GatewayClientFactory gatewayClientFactory,
+            PaymentVendorLogRepository paymentVendorLogRepository) {
         this.paymentAttemptRepository = paymentAttemptRepository;
         this.orderService = orderService;
         this.paymentEventRepository = paymentEventRepository;
@@ -49,7 +48,7 @@ public class PaymentService {
     @Transactional
     public PaymentAttempt createPaymentAttempt(UUID orderId, CreatePaymentRequest request) {
         // Ensure order exists before allowing payment (lightweight check across module)
-        PurchaseOrder order = orderService.getOrder(orderId);
+        com.payments.payment_order_service.order.dto.response.OrderResponse order = orderService.getOrder(orderId);
 
         long remainingAmount = order.getTotalAmount() - order.getPaidAmount();
         if (request.getAmount() > remainingAmount) {
@@ -89,7 +88,8 @@ public class PaymentService {
         PaymentAttempt savedAttempt = paymentAttemptRepository.save(attempt);
 
         if ("WALLET".equalsIgnoreCase(request.getPaymentMethod())) {
-            paymentEventRepository.save(new PaymentEvent(savedAttempt.getId(), PaymentAttemptStatus.PENDING, PaymentAttemptStatus.SUCCESS));
+            paymentEventRepository.save(
+                    new PaymentEvent(savedAttempt.getId(), PaymentAttemptStatus.PENDING, PaymentAttemptStatus.SUCCESS));
             orderService.recordPaymentSuccess(orderId, savedAttempt.getAmount());
         }
 
@@ -102,7 +102,8 @@ public class PaymentService {
                 .orElseThrow(() -> new IllegalArgumentException("Payment Attempt not found: " + paymentId));
 
         // ZT Architecture: We no longer blindly trust request.getStatus().
-        // Instead, we use the abstract Factory pattern to query the authentic vendor payload securely.
+        // Instead, we use the abstract Factory pattern to query the authentic vendor
+        // payload securely.
         PaymentGatewayClient client = gatewayClientFactory.getClient(attempt.getVendor());
         VerifiedPaymentResult vendorResult = client.verifyPaymentStatus(attempt);
 
@@ -132,11 +133,11 @@ public class PaymentService {
                 savedAttempt.getId(),
                 targetStatus.name(),
                 vendorResult.getRawJsonPayload(),
-                LocalDateTime.now(ZoneOffset.UTC)
-        );
+                LocalDateTime.now(ZoneOffset.UTC));
         paymentVendorLogRepository.save(log);
 
-        // If the payment succeeded, notify the Order module to update the cart's paid amount
+        // If the payment succeeded, notify the Order module to update the cart's paid
+        // amount
         if (targetStatus == PaymentAttemptStatus.SUCCESS) {
             orderService.recordPaymentSuccess(savedAttempt.getOrderId(), savedAttempt.getAmount());
         }
@@ -160,8 +161,7 @@ public class PaymentService {
                 new PaymentMethodMetadata("WALLET", true, 1, List.of("UPI", "CARD", "NETBANKING"), mockWalletBalance),
                 new PaymentMethodMetadata("UPI", false, 2, List.of("WALLET"), null),
                 new PaymentMethodMetadata("CARD", false, 2, List.of("WALLET"), null),
-                new PaymentMethodMetadata("NETBANKING", false, 2, List.of("WALLET"), null)
-        );
+                new PaymentMethodMetadata("NETBANKING", false, 2, List.of("WALLET"), null));
 
         return new EligiblePaymentMethodsResponse(supportedMethods);
     }

@@ -19,8 +19,8 @@ public class OrderController {
     }
 
     @PostMapping
-    public ResponseEntity<PurchaseOrder> createOrder(@RequestBody CreateOrderRequest request) {
-        PurchaseOrder order = orderService.createOrder(request);
+    public ResponseEntity<com.payments.payment_order_service.order.dto.response.OrderResponse> createOrder(@RequestBody CreateOrderRequest request) {
+        com.payments.payment_order_service.order.dto.response.OrderResponse order = orderService.createOrder(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(order);
     }
 
@@ -31,8 +31,7 @@ public class OrderController {
         if (includePayments) {
             return ResponseEntity.ok(orderService.getOrderWithPayments(id));
         } else {
-            PurchaseOrder order = orderService.getOrder(id);
-            return ResponseEntity.ok(new com.payments.payment_order_service.order.dto.response.OrderResponse(order, null));
+            return ResponseEntity.ok(orderService.getOrder(id));
         }
     }
 }

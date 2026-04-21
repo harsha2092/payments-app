@@ -27,7 +27,7 @@ public class OrderService {
     }
 
     @Transactional
-    public PurchaseOrder createOrder(CreateOrderRequest request) {
+    public OrderResponse createOrder(CreateOrderRequest request) {
         LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
 
         PurchaseOrder order = new PurchaseOrder();
@@ -56,12 +56,14 @@ public class OrderService {
         }
         order.setTotalAmount(totalAmount);
 
-        return orderRepository.save(order);
+        PurchaseOrder savedOrder = orderRepository.save(order);
+        return OrderResponse.fromEntity(savedOrder, null);
     }
 
-    public PurchaseOrder getOrder(UUID orderId) {
-        return orderRepository.findById(orderId)
+    public OrderResponse getOrder(UUID orderId) {
+        PurchaseOrder order = orderRepository.findByIdWithLineItems(orderId)
                 .orElseThrow(() -> new IllegalArgumentException("Order not found: " + orderId));
+        return OrderResponse.fromEntity(order, null);
     }
 
     public OrderResponse getOrderWithPayments(UUID orderId) {
@@ -72,14 +74,18 @@ public class OrderService {
 
         PurchaseOrder order = (PurchaseOrder) results.get(0)[0];
         List<PaymentAttempt> payments = new ArrayList<>();
+        java.util.Set<UUID> loadedPayments = new java.util.HashSet<>();
 
         for (Object[] row : results) {
             if (row[1] != null) {
-                payments.add((PaymentAttempt) row[1]);
+                PaymentAttempt attempt = (PaymentAttempt) row[1];
+                if (loadedPayments.add(attempt.getId())) {
+                    payments.add(attempt);
+                }
             }
         }
 
-        return new OrderResponse(order, payments);
+        return OrderResponse.fromEntity(order, payments);
     }
 
     @Transactional
