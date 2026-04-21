@@ -395,6 +395,9 @@ boolean lockAcquired = redisTemplate.opsForValue()
 ```
 
 ---
+Questions: How is the heardbeat updated by the worker at every 30 seconds? can you write some psuedocode to show that like how it will be implemented in the code while processing a request
+
+----
 
 ### 6. Read Replica Strategy Breaks CQRS Promise
 
