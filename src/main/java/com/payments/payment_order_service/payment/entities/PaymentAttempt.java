@@ -11,9 +11,11 @@ import jakarta.persistence.Version;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+import com.payments.payment_order_service.common.entities.AbstractEntity;
+
 @Entity
 @Table(name = "payment_attempts")
-public class PaymentAttempt {
+public class PaymentAttempt extends AbstractEntity<UUID> {
 
     @Id
     @Column(columnDefinition = "UUID")

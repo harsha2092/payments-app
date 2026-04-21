@@ -10,9 +10,11 @@ import jakarta.persistence.Table;
 
 import java.util.UUID;
 
+import com.payments.payment_order_service.common.entities.AbstractEntity;
+
 @Entity
 @Table(name = "purchase_order_line_items")
-public class OrderLineItem {
+public class OrderLineItem extends AbstractEntity<UUID> {
 
     @Id
     @Column(columnDefinition = "UUID")

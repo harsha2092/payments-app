@@ -14,9 +14,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+import com.payments.payment_order_service.common.entities.AbstractEntity;
+
 @Entity
 @Table(name = "purchase_orders")
-public class PurchaseOrder {
+public class PurchaseOrder extends AbstractEntity<UUID> {
 
     @Id
     @Column(columnDefinition = "UUID")

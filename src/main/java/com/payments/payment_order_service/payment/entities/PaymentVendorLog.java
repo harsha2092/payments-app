@@ -10,9 +10,11 @@ import org.hibernate.type.SqlTypes;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+import com.payments.payment_order_service.common.entities.AbstractEntity;
+
 @Entity
 @Table(name = "payment_vendor_logs")
-public class PaymentVendorLog {
+public class PaymentVendorLog extends AbstractEntity<UUID> {
 
     @Id
     @Column(columnDefinition = "UUID")
