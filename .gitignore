@@ -95,3 +95,6 @@ Icon
 *.swp
 *.core
 /tmp/
+
+# Ignore local file-based H2 database created by mock-vendor-service to avoid committing binary data
+/mock-vendor-service/data/
