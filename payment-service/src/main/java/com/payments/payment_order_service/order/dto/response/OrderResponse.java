@@ -131,6 +131,7 @@ public class OrderResponse {
         private String status;
         private String paymentMethod;
         private String vendor;
+        private String gatewayOrderId;
         private String vendorTransactionId;
         private String fundingSourceType;
         private String fundingSourceIdentifier;
@@ -149,6 +150,7 @@ public class OrderResponse {
             dto.setStatus(attempt.getStatus() != null ? attempt.getStatus().name() : null);
             dto.setPaymentMethod(attempt.getPaymentMethod());
             dto.setVendor(attempt.getVendor());
+            dto.setGatewayOrderId(attempt.getGatewayOrderId());
             dto.setVendorTransactionId(attempt.getVendorTransactionId());
             dto.setFundingSourceType(attempt.getFundingSourceType());
             dto.setFundingSourceIdentifier(attempt.getFundingSourceIdentifier());
@@ -173,6 +175,8 @@ public class OrderResponse {
         public void setPaymentMethod(String paymentMethod) { this.paymentMethod = paymentMethod; }
         public String getVendor() { return vendor; }
         public void setVendor(String vendor) { this.vendor = vendor; }
+        public String getGatewayOrderId() { return gatewayOrderId; }
+        public void setGatewayOrderId(String gatewayOrderId) { this.gatewayOrderId = gatewayOrderId; }
         public String getVendorTransactionId() { return vendorTransactionId; }
         public void setVendorTransactionId(String vendorTransactionId) { this.vendorTransactionId = vendorTransactionId; }
         public String getFundingSourceType() { return fundingSourceType; }

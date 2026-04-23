@@ -1,12 +1,16 @@
 package com.payments.payment_order_service.payment.entities;
 
 public enum PaymentAttemptStatus {
+    INITIATED,
     PENDING,
     SUCCESS,
     FAILED;
 
     public boolean canTransitionTo(PaymentAttemptStatus target) {
         if (this == target) return true; // idempotent
+        if (this == INITIATED) {
+            return target == PENDING || target == SUCCESS || target == FAILED;
+        }
         if (this == PENDING) {
             return target == SUCCESS || target == FAILED;
         }

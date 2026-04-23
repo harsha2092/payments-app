@@ -36,6 +36,9 @@ public class PaymentAttempt extends AbstractEntity<UUID> {
     @Column(length = 100)
     private String vendor;
 
+    @Column(name = "gateway_order_id", length = 100)
+    private String gatewayOrderId;
+
     @Column(name = "vendor_transaction_id", length = 100)
     private String vendorTransactionId;
 
@@ -72,6 +75,8 @@ public class PaymentAttempt extends AbstractEntity<UUID> {
     public void setPaymentMethod(String paymentMethod) { this.paymentMethod = paymentMethod; }
     public String getVendor() { return vendor; }
     public void setVendor(String vendor) { this.vendor = vendor; }
+    public String getGatewayOrderId() { return gatewayOrderId; }
+    public void setGatewayOrderId(String gatewayOrderId) { this.gatewayOrderId = gatewayOrderId; }
     public String getVendorTransactionId() { return vendorTransactionId; }
     public void setVendorTransactionId(String vendorTransactionId) { this.vendorTransactionId = vendorTransactionId; }
     public PaymentAttemptStatus getStatus() { return status; }

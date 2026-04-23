@@ -45,7 +45,6 @@ public class PaymentService {
         this.paymentVendorLogRepository = paymentVendorLogRepository;
     }
 
-    @Transactional
     public PaymentAttempt createPaymentAttempt(UUID orderId, CreatePaymentRequest request) {
         // Ensure order exists before allowing payment (lightweight check across module)
         com.payments.payment_order_service.order.dto.response.OrderResponse order = orderService.getOrder(orderId);
@@ -55,18 +54,24 @@ public class PaymentService {
             throw new IllegalArgumentException("Payment amount exceeds order remaining amount");
         }
 
-        List<PaymentAttempt> existingAttempts = paymentAttemptRepository.findByOrderId(orderId);
+        long activeExternalAttemptsCount = paymentAttemptRepository.countActiveExternalAttempts(orderId);
 
-        long activeExternalAttemptsCount = existingAttempts.stream()
-                .filter(a -> a.getStatus() != PaymentAttemptStatus.FAILED)
-                .filter(a -> !"WALLET".equalsIgnoreCase(a.getPaymentMethod()))
-                .count();
+        boolean isWallet = "WALLET".equalsIgnoreCase(request.getPaymentMethod());
 
-        if (!"WALLET".equalsIgnoreCase(request.getPaymentMethod()) && activeExternalAttemptsCount >= 1) {
+        if (!isWallet && activeExternalAttemptsCount >= 1) {
             throw new IllegalArgumentException("Only one active external payment method is allowed per order");
         }
 
         LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
+
+        String vendor = request.getVendor();
+        if (!isWallet) {
+            if (vendor == null || vendor.trim().isEmpty()) {
+                vendor = Math.random() > 0.5 ? "RAZORPAY" : "JUSPAY";
+            }
+        } else {
+            vendor = "INTERNAL";
+        }
 
         PaymentAttempt attempt = new PaymentAttempt();
         attempt.setId(UuidCreator.getTimeOrderedEpoch());
@@ -74,26 +79,50 @@ public class PaymentService {
         attempt.setAmount(request.getAmount());
         attempt.setCurrency(request.getCurrency());
         attempt.setPaymentMethod(request.getPaymentMethod());
-        attempt.setVendor(request.getVendor());
+        attempt.setVendor(vendor);
 
-        if ("WALLET".equalsIgnoreCase(request.getPaymentMethod())) {
+        if (isWallet) {
+            // TODO: need to wallet service to mark it as success or failure
             attempt.setStatus(PaymentAttemptStatus.SUCCESS);
         } else {
-            attempt.setStatus(PaymentAttemptStatus.PENDING);
+            attempt.setStatus(PaymentAttemptStatus.INITIATED);
         }
 
         attempt.setCreatedAt(now);
         attempt.setUpdatedAt(now);
 
-        PaymentAttempt savedAttempt = paymentAttemptRepository.save(attempt);
+        attempt = paymentAttemptRepository.save(attempt);
 
-        if ("WALLET".equalsIgnoreCase(request.getPaymentMethod())) {
+        if (isWallet) {
+            // Simulated: we are directly assuming success here for WALLET during mock demo.
+            // Using INITIATED -> SUCCESS as it reflects the one-step synchronous
+            // resolution.
             paymentEventRepository.save(
-                    new PaymentEvent(savedAttempt.getId(), PaymentAttemptStatus.PENDING, PaymentAttemptStatus.SUCCESS));
-            orderService.recordPaymentSuccess(orderId, savedAttempt.getAmount());
+                    new PaymentEvent(attempt.getId(), PaymentAttemptStatus.INITIATED, PaymentAttemptStatus.SUCCESS));
+            orderService.recordPaymentSuccess(orderId, attempt.getAmount());
+        } else {
+            // Call gateway to create an order outside transaction
+            PaymentGatewayClient client = gatewayClientFactory.getClient(vendor);
+            com.payments.payment_order_service.payment.business_models.GatewayOrderRequest gatewayRequest = new com.payments.payment_order_service.payment.business_models.GatewayOrderRequest(
+                    attempt.getId(), request.getAmount(), request.getCurrency());
+            com.payments.payment_order_service.payment.business_models.GatewayOrderResponse gatewayResponse = client
+                    .createOrder(gatewayRequest);
+
+            // Update attempt with gateway details
+            // Answer to TODO: The gateway's internal "CREATED" intent intuitively maps to
+            // our local "PENDING"
+            // since our local system is now waiting for user capture via the frontend
+            // checkout UI.
+            attempt.setGatewayOrderId(gatewayResponse.getId());
+            attempt.setStatus(PaymentAttemptStatus.PENDING);
+            attempt.setUpdatedAt(LocalDateTime.now(ZoneOffset.UTC));
+            attempt = paymentAttemptRepository.save(attempt);
+
+            paymentEventRepository.save(
+                    new PaymentEvent(attempt.getId(), PaymentAttemptStatus.INITIATED, PaymentAttemptStatus.PENDING));
         }
 
-        return savedAttempt;
+        return attempt;
     }
 
     @Transactional
