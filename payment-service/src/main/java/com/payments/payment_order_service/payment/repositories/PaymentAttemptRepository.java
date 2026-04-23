@@ -11,6 +11,7 @@ import java.util.UUID;
 public interface PaymentAttemptRepository extends JpaRepository<PaymentAttempt, UUID> {
     List<PaymentAttempt> findByOrderId(UUID orderId);
 
+    // Need to see if this is actually performant query
     @org.springframework.data.jpa.repository.Query("SELECT COUNT(p) FROM PaymentAttempt p WHERE p.orderId = :orderId AND p.status != 'FAILED' AND p.paymentMethod != 'WALLET'")
     long countActiveExternalAttempts(@org.springframework.data.repository.query.Param("orderId") UUID orderId);
 }
