@@ -6,11 +6,19 @@ public class GatewayOrderRequest {
     private UUID paymentAttemptId;
     private Long amount;
     private String currency;
+    private String paymentMethod;
 
     public GatewayOrderRequest(UUID paymentAttemptId, Long amount, String currency) {
         this.paymentAttemptId = paymentAttemptId;
         this.amount = amount;
         this.currency = currency;
+    }
+
+    public GatewayOrderRequest(UUID paymentAttemptId, Long amount, String currency, String paymentMethod) {
+        this.paymentAttemptId = paymentAttemptId;
+        this.amount = amount;
+        this.currency = currency;
+        this.paymentMethod = paymentMethod;
     }
 
     public UUID getPaymentAttemptId() {
@@ -35,5 +43,13 @@ public class GatewayOrderRequest {
 
     public void setCurrency(String currency) {
         this.currency = currency;
+    }
+
+    public String getPaymentMethod() {
+        return paymentMethod;
+    }
+
+    public void setPaymentMethod(String paymentMethod) {
+        this.paymentMethod = paymentMethod;
     }
 }

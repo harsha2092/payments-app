@@ -26,8 +26,16 @@ public class MockOrderController {
         order.setId("mock_ord_" + UuidCreator.getTimeOrderedEpoch().toString().substring(0, 8).toUpperCase());
         order.setAmount(request.getAmount());
         order.setCurrency(request.getCurrency() != null ? request.getCurrency() : "USD");
-        order.setStatus("CREATED");
-        
+
+        if ("WALLET".equalsIgnoreCase(request.getPaymentMethod())) {
+            order.setStatus("SUCCESS");
+            order.setPaymentMethod("WALLET");
+            order.setVendorPaymentId(
+                    "pay_wallet_" + UuidCreator.getTimeOrderedEpoch().toString().substring(0, 8).toUpperCase());
+        } else {
+            order.setStatus("CREATED");
+        }
+
         MockOrder saved = mockOrderRepository.save(order);
         return ResponseEntity.ok(saved);
     }
@@ -41,15 +49,16 @@ public class MockOrderController {
 
     @PutMapping("/{id}/simulate")
     public ResponseEntity<MockOrder> simulatePayment(
-            @PathVariable String id, 
+            @PathVariable String id,
             @RequestBody SimulatePaymentRequest request) {
-            
+
         return mockOrderRepository.findById(id).map(order -> {
             order.setStatus(request.getTargetStatus() != null ? request.getTargetStatus() : "CAPTURED");
             order.setPaymentMethod(request.getPaymentMethod());
-            order.setVendorPaymentId("pay_" + UuidCreator.getTimeOrderedEpoch().toString().substring(0, 8).toUpperCase());
+            order.setVendorPaymentId(
+                    "pay_" + UuidCreator.getTimeOrderedEpoch().toString().substring(0, 8).toUpperCase());
             order.setUpdatedAt(LocalDateTime.now());
-            
+
             if (request.getMetadata() != null) {
                 order.setMetadata(request.getMetadata());
             }
@@ -58,7 +67,7 @@ public class MockOrderController {
 
             // TODO: In Phase 4, we would add the async webhook dispatching logic here
             // if (request.isSimulateWebhook()) {
-            //      webhookService.dispatchAsync(saved);
+            // webhookService.dispatchAsync(saved);
             // }
 
             return ResponseEntity.ok(saved);

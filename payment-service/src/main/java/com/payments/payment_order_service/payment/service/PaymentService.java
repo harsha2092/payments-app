@@ -80,46 +80,32 @@ public class PaymentService {
         attempt.setCurrency(request.getCurrency());
         attempt.setPaymentMethod(request.getPaymentMethod());
         attempt.setVendor(vendor);
-
-        if (isWallet) {
-            // TODO: need to wallet service to mark it as success or failure
-            attempt.setStatus(PaymentAttemptStatus.SUCCESS);
-        } else {
-            attempt.setStatus(PaymentAttemptStatus.INITIATED);
-        }
-
+        attempt.setStatus(PaymentAttemptStatus.INITIATED);
         attempt.setCreatedAt(now);
         attempt.setUpdatedAt(now);
 
         attempt = paymentAttemptRepository.save(attempt);
 
-        if (isWallet) {
-            // Simulated: we are directly assuming success here for WALLET during mock demo.
-            // Using INITIATED -> SUCCESS as it reflects the one-step synchronous
-            // resolution.
-            paymentEventRepository.save(
-                    new PaymentEvent(attempt.getId(), PaymentAttemptStatus.INITIATED, PaymentAttemptStatus.SUCCESS));
+        // Call gateway to create an order outside transaction
+        PaymentGatewayClient client = gatewayClientFactory.getClient(vendor);
+        com.payments.payment_order_service.payment.business_models.GatewayOrderRequest gatewayRequest = new com.payments.payment_order_service.payment.business_models.GatewayOrderRequest(
+                attempt.getId(), request.getAmount(), request.getCurrency(), attempt.getPaymentMethod());
+        com.payments.payment_order_service.payment.business_models.GatewayOrderResponse gatewayResponse = client
+                .createOrder(gatewayRequest);
+
+        // Update attempt with gateway details
+        attempt.setGatewayOrderId(gatewayResponse.getId());
+        PaymentAttemptStatus targetStatus = PaymentAttemptStatus.mapFromGatewayStatus(gatewayResponse.getStatus());
+        attempt.setStatus(targetStatus);
+        attempt.setUpdatedAt(LocalDateTime.now(ZoneOffset.UTC));
+        attempt = paymentAttemptRepository.save(attempt);
+
+        paymentEventRepository.save(
+                new PaymentEvent(attempt.getId(), PaymentAttemptStatus.INITIATED, targetStatus));
+
+        // If the gateway responded with terminal success immediately
+        if (targetStatus == PaymentAttemptStatus.SUCCESS) {
             orderService.recordPaymentSuccess(orderId, attempt.getAmount());
-        } else {
-            // Call gateway to create an order outside transaction
-            PaymentGatewayClient client = gatewayClientFactory.getClient(vendor);
-            com.payments.payment_order_service.payment.business_models.GatewayOrderRequest gatewayRequest = new com.payments.payment_order_service.payment.business_models.GatewayOrderRequest(
-                    attempt.getId(), request.getAmount(), request.getCurrency());
-            com.payments.payment_order_service.payment.business_models.GatewayOrderResponse gatewayResponse = client
-                    .createOrder(gatewayRequest);
-
-            // Update attempt with gateway details
-            // Answer to TODO: The gateway's internal "CREATED" intent intuitively maps to
-            // our local "PENDING"
-            // since our local system is now waiting for user capture via the frontend
-            // checkout UI.
-            attempt.setGatewayOrderId(gatewayResponse.getId());
-            attempt.setStatus(PaymentAttemptStatus.PENDING);
-            attempt.setUpdatedAt(LocalDateTime.now(ZoneOffset.UTC));
-            attempt = paymentAttemptRepository.save(attempt);
-
-            paymentEventRepository.save(
-                    new PaymentEvent(attempt.getId(), PaymentAttemptStatus.INITIATED, PaymentAttemptStatus.PENDING));
         }
 
         return attempt;

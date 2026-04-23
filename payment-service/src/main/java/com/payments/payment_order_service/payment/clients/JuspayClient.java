@@ -71,11 +71,7 @@ public class JuspayClient implements PaymentGatewayClient {
                     : root.path("vendorPaymentId").asText();
             String paymentMethod = root.path("paymentMethod").isNull() ? null : root.path("paymentMethod").asText();
 
-            PaymentAttemptStatus targetStatus = switch (mockStatus) {
-                case "CAPTURED" -> PaymentAttemptStatus.SUCCESS;
-                case "FAILED" -> PaymentAttemptStatus.FAILED;
-                default -> PaymentAttemptStatus.PENDING;
-            };
+            PaymentAttemptStatus targetStatus = PaymentAttemptStatus.mapFromGatewayStatus(mockStatus);
 
             return new VerifiedPaymentResult(
                     targetStatus,

@@ -69,11 +69,7 @@ public class RazorpayClient implements PaymentGatewayClient {
             String vendorTransactionId = root.path("vendorPaymentId").isNull() ? null : root.path("vendorPaymentId").asText();
             String paymentMethod = root.path("paymentMethod").isNull() ? null : root.path("paymentMethod").asText();
 
-            PaymentAttemptStatus targetStatus = switch (mockStatus) {
-                case "CAPTURED" -> PaymentAttemptStatus.SUCCESS;
-                case "FAILED" -> PaymentAttemptStatus.FAILED;
-                default -> PaymentAttemptStatus.PENDING;
-            };
+            PaymentAttemptStatus targetStatus = PaymentAttemptStatus.mapFromGatewayStatus(mockStatus);
 
             return new VerifiedPaymentResult(
                     targetStatus,

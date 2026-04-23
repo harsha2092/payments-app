@@ -5,20 +5,50 @@ import com.payments.payment_order_service.payment.business_models.GatewayOrderRe
 import com.payments.payment_order_service.payment.business_models.VerifiedPaymentResult;
 import com.payments.payment_order_service.payment.entities.PaymentAttempt;
 import com.payments.payment_order_service.payment.entities.PaymentAttemptStatus;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestTemplate;
 
 @Component
 public class InternalWalletClient implements PaymentGatewayClient {
 
+    private final RestTemplate restTemplate;
+    private final String mockVendorUrl;
+    private final com.payments.payment_order_service.payment.repositories.PaymentVendorLogRepository logRepo;
+    private final com.fasterxml.jackson.databind.ObjectMapper mapper;
+
+    public InternalWalletClient(RestTemplate restTemplate,
+                                @Value("${mock-vendor.url}") String mockVendorUrl,
+                                com.payments.payment_order_service.payment.repositories.PaymentVendorLogRepository logRepo,
+                                com.fasterxml.jackson.databind.ObjectMapper mapper) {
+        this.restTemplate = restTemplate;
+        this.mockVendorUrl = mockVendorUrl;
+        this.logRepo = logRepo;
+        this.mapper = mapper;
+    }
+
     @Override
     public GatewayOrderResponse createOrder(GatewayOrderRequest request) {
-        // Wallet does not require an external physical order, return a dummy internal one
-        GatewayOrderResponse response = new GatewayOrderResponse();
-        response.setId("wallet_ord_dummy");
-        response.setAmount(request.getAmount());
-        response.setCurrency(request.getCurrency());
-        response.setStatus("CREATED");
-        return response;
+        String url = mockVendorUrl + "/mock-vendor/orders";
+
+        // Fetch raw JSON payload structurally returning from the Gateway
+        org.springframework.http.ResponseEntity<String> responseEntity = restTemplate.postForEntity(url, request, String.class);
+        String rawJson = responseEntity.getBody();
+
+        // Log the external intent record
+        logRepo.save(new com.payments.payment_order_service.payment.entities.PaymentVendorLog(
+                com.github.f4b6a3.uuid.UuidCreator.getTimeOrderedEpoch(),
+                request.getPaymentAttemptId(),
+                "WALLET_ORDER_CREATED",
+                rawJson,
+                java.time.LocalDateTime.now(java.time.ZoneOffset.UTC)
+        ));
+
+        try {
+            return mapper.readValue(rawJson, GatewayOrderResponse.class);
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            throw new RuntimeException("Failed to decode internal wallet order response", e);
+        }
     }
 
     @Override
@@ -28,15 +58,28 @@ public class InternalWalletClient implements PaymentGatewayClient {
 
     @Override
     public VerifiedPaymentResult verifyPaymentStatus(PaymentAttempt attempt) {
-        // MOCK: Represents synchronous check against ledger integrity
-        String mockJson = "{ \"ledger_status\": \"LOCKED\", \"wallet_balance_deducted\": true }";
+        String url = mockVendorUrl + "/mock-vendor/orders/" + attempt.getGatewayOrderId();
 
-        return new VerifiedPaymentResult(
-                PaymentAttemptStatus.SUCCESS,
-                "txn_wallet_123",
-                "WALLET",
-                null,
-                mockJson
-        );
+        try {
+            org.springframework.http.ResponseEntity<String> responseEntity = restTemplate.getForEntity(url, String.class);
+            String rawJson = responseEntity.getBody();
+
+            com.fasterxml.jackson.databind.JsonNode root = mapper.readTree(rawJson);
+            String mockStatus = root.path("status").asText();
+            String vendorTransactionId = root.path("vendorPaymentId").isNull() ? null : root.path("vendorPaymentId").asText();
+            String paymentMethod = root.path("paymentMethod").isNull() ? null : root.path("paymentMethod").asText();
+
+            PaymentAttemptStatus targetStatus = PaymentAttemptStatus.mapFromGatewayStatus(mockStatus);
+
+            return new VerifiedPaymentResult(
+                    targetStatus,
+                    vendorTransactionId,
+                    paymentMethod,
+                    null, // fundingSourceType
+                    rawJson
+            );
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to verify internal wallet status", e);
+        }
     }
 }
